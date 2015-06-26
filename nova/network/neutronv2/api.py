@@ -623,7 +623,7 @@ class API(base.Base):
         else:
             net_ids = []
 
-            for (net_id, _i, port_id) in requested_networks:
+            for (net_id, _i, port_id, subnet_id) in requested_networks:
                 if port_id:
                     try:
                         port = neutron.show_port(port_id).get('port')
@@ -643,6 +643,18 @@ class API(base.Base):
                     net_id = port['network_id']
                 else:
                     ports_needed_per_instance += 1
+
+                if subnet_id:
+                    # Get the network-id for given subnet-id
+                    # if not found raise exception.SubnetNotFound
+                    try:
+                        subnet = neutron.show_subnet(subnet_id).get('subnet')
+                    except neutronv2.exceptions.NeutronClientException as e:
+                        if e.status_code == 404:
+                            subnet = None
+                    if not subnet:
+                        raise exception.SubnetNotFound(subnet_id=subnet_id)
+                    net_id = subnet['network_id']
 
                 if net_id in net_ids:
                     raise exception.NetworkDuplicated(network_id=net_id)

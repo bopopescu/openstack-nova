@@ -594,6 +594,10 @@ class PortNotFound(NotFound):
     msg_fmt = _("Port id %(port_id)s could not be found.")
 
 
+class SubnetNotFound(NotFound):
+    msg_fmt = _("Subnet id %(subnet_id)s could not be found.")
+
+
 class NetworkNotFoundForBridge(NetworkNotFound):
     msg_fmt = _("Network could not be found for bridge %(bridge)s")
 

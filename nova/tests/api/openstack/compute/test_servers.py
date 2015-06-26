@@ -213,14 +213,21 @@ class ServersControllerTest(ControllerTest):
         port = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
         requested_networks = [{'port': port}]
         res = self.controller._get_requested_networks(requested_networks)
-        self.assertEqual(res, [(None, None, port)])
+        self.assertEqual(res, [(None, None, port, None)])
+
+    def test_requested_networks_neutronv2_enabled_with_subnet(self):
+        self.flags(network_api_class='nova.network.neutronv2.api.API')
+        subnet = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+        requested_networks = [{'subnet': subnet}]
+        res = self.controller._get_requested_networks(requested_networks)
+        self.assertEqual(res, [(None, None, None, subnet)])
 
     def test_requested_networks_neutronv2_enabled_with_network(self):
         self.flags(network_api_class='nova.network.neutronv2.api.API')
         network = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
         requested_networks = [{'uuid': network}]
         res = self.controller._get_requested_networks(requested_networks)
-        self.assertEqual(res, [(network, None, None)])
+        self.assertEqual(res, [(network, None, None, None)])
 
     def test_requested_networks_neutronv2_enabled_with_network_and_port(self):
         self.flags(network_api_class='nova.network.neutronv2.api.API')
@@ -228,7 +235,7 @@ class ServersControllerTest(ControllerTest):
         port = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
         requested_networks = [{'uuid': network, 'port': port}]
         res = self.controller._get_requested_networks(requested_networks)
-        self.assertEqual(res, [(None, None, port)])
+        self.assertEqual(res, [(None, None, port, None)])
 
     def test_requested_networks_neutronv2_disabled_with_port(self):
         port = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
@@ -244,7 +251,7 @@ class ServersControllerTest(ControllerTest):
         port = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
         requested_networks = [{'uuid': network, 'port': port}]
         res = self.controller._get_requested_networks(requested_networks)
-        self.assertEqual(res, [(None, None, port)])
+        self.assertEqual(res, [(None, None, port, None)])
 
     def test_requested_networks_neutronv2_subclass_with_port(self):
         cls = 'nova.tests.api.openstack.compute.test_servers.NeutronV2Subclass'
@@ -252,7 +259,7 @@ class ServersControllerTest(ControllerTest):
         port = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
         requested_networks = [{'port': port}]
         res = self.controller._get_requested_networks(requested_networks)
-        self.assertEqual(res, [(None, None, port)])
+        self.assertEqual(res, [(None, None, port, None)])
 
     def test_get_server_by_uuid(self):
         req = fakes.HTTPRequest.blank('/fake/servers/%s' % FAKE_UUID)

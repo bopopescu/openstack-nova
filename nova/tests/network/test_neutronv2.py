@@ -1160,8 +1160,8 @@ class TestNeutronv2(TestNeutronv2Base):
         neutronapi.API().show_port(self.context, 'foo')
 
     def test_validate_networks(self):
-        requested_networks = [('my_netid1', 'test', None),
-                              ('my_netid2', 'test2', None)]
+        requested_networks = [('my_netid1', 'test', None, None),
+                              ('my_netid2', 'test2', None, None)]
         ids = ['my_netid1', 'my_netid2']
         self.moxed_client.list_networks(
             id=mox.SameElementsAs(ids)).AndReturn(
@@ -1176,8 +1176,8 @@ class TestNeutronv2(TestNeutronv2Base):
         api.validate_networks(self.context, requested_networks, 1)
 
     def test_validate_networks_without_port_quota_on_network_side(self):
-        requested_networks = [('my_netid1', None, None),
-                              ('my_netid2', None, None)]
+        requested_networks = [('my_netid1', None, None, None),
+                              ('my_netid2', None, None, None)]
         ids = ['my_netid1', 'my_netid2']
         self.moxed_client.list_networks(
             id=mox.SameElementsAs(ids)).AndReturn(
@@ -1192,7 +1192,7 @@ class TestNeutronv2(TestNeutronv2Base):
         api.validate_networks(self.context, requested_networks, 1)
 
     def test_validate_networks_ex_1(self):
-        requested_networks = [('my_netid1', 'test', None)]
+        requested_networks = [('my_netid1', 'test', None, None)]
         self.moxed_client.list_networks(
             id=mox.SameElementsAs(['my_netid1'])).AndReturn(
                 {'networks': self.nets1})
@@ -1209,9 +1209,9 @@ class TestNeutronv2(TestNeutronv2Base):
             self.assertIn("my_netid2", str(ex))
 
     def test_validate_networks_ex_2(self):
-        requested_networks = [('my_netid1', 'test', None),
-                              ('my_netid2', 'test2', None),
-                              ('my_netid3', 'test3', None)]
+        requested_networks = [('my_netid1', 'test', None, None),
+                              ('my_netid2', 'test2', None, None),
+                              ('my_netid3', 'test3', None, None)]
         ids = ['my_netid1', 'my_netid2', 'my_netid3']
         self.moxed_client.list_networks(
             id=mox.SameElementsAs(ids)).AndReturn(
@@ -1227,8 +1227,8 @@ class TestNeutronv2(TestNeutronv2Base):
         """Verify that the correct exception is thrown when duplicate
            network ids are passed to validate_networks.
         """
-        requested_networks = [('my_netid1', None, None),
-                              ('my_netid1', None, None)]
+        requested_networks = [('my_netid1', None, None, None),
+                              ('my_netid1', None, None, None)]
         self.mox.ReplayAll()
         # Expected call from setUp.
         neutronv2.get_client(None)
@@ -1256,7 +1256,7 @@ class TestNeutronv2(TestNeutronv2Base):
         # Verify that the correct exception is thrown when a non existent
         # port is passed to validate_networks.
 
-        requested_networks = [('my_netid1', None, '3123-ad34-bc43-32332ca33e')]
+        requested_networks = [('my_netid1', None, '3123-ad34-bc43-32332ca33e', None)]
 
         NeutronNotFound = neutronv2.exceptions.NeutronClientException(
                                                             status_code=404)
@@ -1274,7 +1274,7 @@ class TestNeutronv2(TestNeutronv2Base):
         # Verify that the correct exception is thrown when a non existent
         # port is passed to validate_networks.
 
-        requested_networks = [('my_netid1', None, '3123-ad34-bc43-32332ca33e')]
+        requested_networks = [('my_netid1', None, '3123-ad34-bc43-32332ca33e', None)]
 
         NeutronNotFound = neutronv2.exceptions.NeutronClientException(
                                                             status_code=0)
@@ -1289,7 +1289,7 @@ class TestNeutronv2(TestNeutronv2Base):
                           self.context, requested_networks, 1)
 
     def test_validate_networks_port_in_use(self):
-        requested_networks = [(None, None, self.port_data3[0]['id'])]
+        requested_networks = [(None, None, self.port_data3[0]['id'], None)]
         self.moxed_client.show_port(self.port_data3[0]['id']).\
             AndReturn({'port': self.port_data3[0]})
 
@@ -1305,7 +1305,7 @@ class TestNeutronv2(TestNeutronv2Base):
         port_a['device_id'] = None
         port_a['device_owner'] = None
 
-        requested_networks = [(None, None, port_a['id'])]
+        requested_networks = [(None, None, port_a['id'], None)]
         self.moxed_client.show_port(port_a['id']).AndReturn({'port': port_a})
 
         self.mox.ReplayAll()
@@ -1316,7 +1316,7 @@ class TestNeutronv2(TestNeutronv2Base):
                           self.context, requested_networks, 1)
 
     def test_validate_networks_no_subnet_id(self):
-        requested_networks = [('his_netid4', None, None)]
+        requested_networks = [('his_netid4', None, None, None)]
         ids = ['his_netid4']
         self.moxed_client.list_networks(
             id=mox.SameElementsAs(ids)).AndReturn(
@@ -1324,6 +1324,20 @@ class TestNeutronv2(TestNeutronv2Base):
         self.mox.ReplayAll()
         api = neutronapi.API()
         self.assertRaises(exception.NetworkRequiresSubnet,
+                          api.validate_networks,
+                          self.context, requested_networks, 1)
+
+    def test_validate_networks_subnet_not_found(self):
+        requested_networks = [(None, None, None, 'my_subid1')]
+        NeutronNotFound = neutronv2.exceptions.NeutronClientException(
+                                                            status_code=404)
+        self.moxed_client.show_subnet(requested_networks[0][-1]).AndRaise(
+                                                           NeutronNotFound)
+        self.mox.ReplayAll()
+        # Expected call from setUp.
+        neutronv2.get_client(None)
+        api = neutronapi.API()
+        self.assertRaises(exception.SubnetNotFound,
                           api.validate_networks,
                           self.context, requested_networks, 1)
 
@@ -1337,8 +1351,8 @@ class TestNeutronv2(TestNeutronv2Base):
             port['device_id'] = None
             port['device_owner'] = None
 
-        requested_networks = [(None, None, port_a['id']),
-                              (None, None, port_b['id'])]
+        requested_networks = [(None, None, port_a['id'], None),
+                              (None, None, port_b['id'], None)]
         self.moxed_client.show_port(port_a['id']).AndReturn({'port': port_a})
         self.moxed_client.show_port(port_b['id']).AndReturn({'port': port_b})
 
@@ -1359,8 +1373,8 @@ class TestNeutronv2(TestNeutronv2Base):
             port['device_id'] = None
             port['device_owner'] = None
 
-        requested_networks = [(None, None, port_a['id']),
-                              (None, None, port_b['id'])]
+        requested_networks = [(None, None, port_a['id'], None),
+                              (None, None, port_b['id'], None)]
         self.moxed_client.show_port(port_a['id']).AndReturn({'port': port_a})
         self.moxed_client.show_port(port_b['id']).AndReturn({'port': port_b})
 
@@ -1382,8 +1396,8 @@ class TestNeutronv2(TestNeutronv2Base):
         # Test validation for a request for one instance needing
         # two ports, where the quota is 2 and 2 ports are in use
         #  => instances which can be created = 0
-        requested_networks = [('my_netid1', 'test', None),
-                              ('my_netid2', 'test2', None)]
+        requested_networks = [('my_netid1', 'test', None, None),
+                              ('my_netid2', 'test2', None, None)]
         ids = ['my_netid1', 'my_netid2']
         self.moxed_client.list_networks(
             id=mox.SameElementsAs(ids)).AndReturn(
@@ -1403,8 +1417,8 @@ class TestNeutronv2(TestNeutronv2Base):
         # Test validation for a request for two instance needing
         # two ports each, where the quota is 5 and 2 ports are in use
         #  => instances which can be created = 1
-        requested_networks = [('my_netid1', 'test', None),
-                              ('my_netid2', 'test2', None)]
+        requested_networks = [('my_netid1', 'test', None, None),
+                              ('my_netid2', 'test2', None, None)]
         ids = ['my_netid1', 'my_netid2']
         self.moxed_client.list_networks(
             id=mox.SameElementsAs(ids)).AndReturn(
@@ -1424,8 +1438,8 @@ class TestNeutronv2(TestNeutronv2Base):
         # Test validation for a request for two instance needing
         # two ports each, where the quota is -1 (unlimited)
         #  => instances which can be created = 1
-        requested_networks = [('my_netid1', 'test', None),
-                              ('my_netid2', 'test2', None)]
+        requested_networks = [('my_netid1', 'test', None, None),
+                              ('my_netid2', 'test2', None, None)]
         ids = ['my_netid1', 'my_netid2']
         self.moxed_client.list_networks(
             id=mox.SameElementsAs(ids)).AndReturn(
@@ -1455,8 +1469,8 @@ class TestNeutronv2(TestNeutronv2Base):
             port['device_id'] = None
             port['device_owner'] = None
 
-        requested_networks = [(None, None, port_a['id']),
-                              (None, None, port_b['id'])]
+        requested_networks = [(None, None, port_a['id'], None),
+                              (None, None, port_b['id'], None)]
         self.moxed_client.show_port(port_a['id']).AndReturn({'port': port_a})
         self.moxed_client.show_port(port_b['id']).AndReturn({'port': port_b})
 

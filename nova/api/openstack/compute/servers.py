@@ -671,6 +671,7 @@ class Controller(wsgi.Controller):
         for network in requested_networks:
             try:
                 port_id = network.get('port', None)
+                subnet_uuid = network.get('subnet', None)
                 if port_id:
                     network_uuid = None
                     if not utils.is_neutron():
@@ -682,10 +683,12 @@ class Controller(wsgi.Controller):
                                 "not in proper format "
                                 "(%s)") % port_id
                         raise exc.HTTPBadRequest(explanation=msg)
+                elif subnet_uuid:
+                    network_uuid = None
                 else:
                     network_uuid = network['uuid']
 
-                if not port_id and not uuidutils.is_uuid_like(network_uuid):
+                if not port_id and not subnet_uuid and not uuidutils.is_uuid_like(network_uuid):
                     br_uuid = network_uuid.split('-', 1)[-1]
                     if not uuidutils.is_uuid_like(br_uuid):
                         msg = _("Bad networks format: network uuid is "
@@ -705,7 +708,7 @@ class Controller(wsgi.Controller):
                 # For neutronv2, requested_networks
                 # should be tuple of (network_uuid, fixed_ip, port_id)
                 if utils.is_neutron():
-                    networks.append((network_uuid, address, port_id))
+                    networks.append((network_uuid, address, port_id, subnet_uuid))
                 else:
                     # check if the network id is already present in the list,
                     # we don't want duplicate networks to be passed
