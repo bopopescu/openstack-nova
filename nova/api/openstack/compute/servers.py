@@ -295,16 +295,29 @@ class Controller(wsgi.Controller):
                             "not in proper format "
                             "(%s)") % network.get('port')
                     raise exc.HTTPBadRequest(explanation=msg)
+                try:
+                    request.subnet_id = network.get('subnet', None)
+                except ValueError:
+                    msg = _("Bad subnet format: subnet uuid is "
+                            "not in proper format "
+                            "(%s)") % network.get('subnet')
+                    raise exc.HTTPBadRequest(explanation=msg)
                 if request.port_id:
                     request.network_id = None
                     if not utils.is_neutron():
                         # port parameter is only for neutron v2.0
                         msg = _("Unknown argument : port")
                         raise exc.HTTPBadRequest(explanation=msg)
+                elif request.subnet_id:
+                    request.network_id = None
+                    if not utils.is_neutron():
+                        # port parameter is only for neutron v2.0
+                        msg = _("Unknown argument : subnet")
+                        raise exc.HTTPBadRequest(explanation=msg)
                 else:
                     request.network_id = network['uuid']
 
-                if (not request.port_id and not
+                if (not request.port_id and not request.subnet_id and not
                         uuidutils.is_uuid_like(request.network_id)):
                     br_uuid = request.network_id.split('-', 1)[-1]
                     if not uuidutils.is_uuid_like(br_uuid):

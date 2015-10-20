@@ -692,6 +692,10 @@ class PortNotFound(NotFound):
     msg_fmt = _("Port id %(port_id)s could not be found.")
 
 
+class SubnetNotFound(NotFound):
+    msg_fmt = _("Subnet id %(subnet_id)s could not be found.")
+
+
 class NetworkNotFoundForBridge(NetworkNotFound):
     msg_fmt = _("Network could not be found for bridge %(bridge)s")
 
@@ -759,6 +763,10 @@ class PortRequiresFixedIP(Invalid):
 
 class PortNotUsable(Invalid):
     msg_fmt = _("Port %(port_id)s not usable for instance %(instance)s.")
+
+
+class SubnetNotUsable(Invalid):
+    msg_fmt = _("Subnet %(subnet_id)s not usable for instance %(instance)s.")
 
 
 class PortNotFree(Invalid):

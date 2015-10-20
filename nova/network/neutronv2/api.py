@@ -265,7 +265,7 @@ class API(base_api.NetworkAPI):
 
     def _create_port(self, port_client, instance, network_id, port_req_body,
                      fixed_ip=None, security_group_ids=None,
-                     available_macs=None, dhcp_opts=None):
+                     available_macs=None, dhcp_opts=None, subnet_id=None):
         """Attempts to create a port for the instance on the given network.
 
         :param port_client: The client to use to create the port.
@@ -291,6 +291,8 @@ class API(base_api.NetworkAPI):
             port_req_body['port']['network_id'] = network_id
             port_req_body['port']['admin_state_up'] = True
             port_req_body['port']['tenant_id'] = instance.project_id
+            if subnet_id:
+                port_req_body['port']['subnet_id'] = subnet_id
             if security_group_ids:
                 port_req_body['port']['security_groups'] = security_group_ids
             if available_macs is not None:
@@ -419,6 +421,7 @@ class API(base_api.NetworkAPI):
         requested_networks = kwargs.get('requested_networks')
         dhcp_opts = kwargs.get('dhcp_options', None)
         ports = {}
+        subnets = {}
         net_ids = []
         ordered_networks = []
         if requested_networks:
@@ -446,6 +449,20 @@ class API(base_api.NetworkAPI):
                             available_macs.discard(port['mac_address'])
                     request.network_id = port['network_id']
                     ports[request.port_id] = port
+                elif request.subnet_id:
+                    try:
+                        subnet = neutron.show_subnet(
+                                         request.subnet_id)['subnet']
+                    except neutron_client_exc.SubnetNotFoundClient:
+                        raise exception.SubnetNotFound(
+                                              subnet_id=request.subnet_id)
+                    if subnet['tenant_id'] != instance.project_id:
+                        raise exception.SubnetNotUsable(
+                                                  subnet_id=request.subnet_id,
+                                                  instance=instance.uuid)
+                    request.network_id = subnet['network_id']
+                    subnets[request.subnet_id] = subnet
+
                 if request.network_id:
                     net_ids.append(request.network_id)
                     ordered_networks.append(request)
@@ -566,7 +583,8 @@ class API(base_api.NetworkAPI):
                     created_port = self._create_port(
                             port_client, instance, request.network_id,
                             port_req_body, request.address,
-                            security_group_ids, available_macs, dhcp_opts)
+                            security_group_ids, available_macs, dhcp_opts,
+                            subnet_id=request.subnet_id)
                     created_port_ids.append(created_port)
                     ports_in_requested_order.append(created_port)
             except Exception:
@@ -672,8 +690,8 @@ class API(base_api.NetworkAPI):
         # NOTE(danms): Temporary and transitional
         if isinstance(requested_networks, objects.NetworkRequestList):
             requested_networks = requested_networks.as_tuples()
-        ports_to_skip = set([port_id for nets, fips, port_id, pci_request_id
-                             in requested_networks])
+        ports_to_skip = set([port_id for nets, fips, port_id, pci_request_id,
+                             subnet_id in requested_networks])
         # NOTE(boden): requested_networks only passed in when deallocating
         # from a failed build / spawn call. Therefore we need to include
         # preexisting ports when deallocating from a standard delete op
@@ -954,6 +972,23 @@ class API(base_api.NetworkAPI):
                         raise exception.PortRequiresFixedIP(
                             port_id=request.port_id)
                     request.network_id = port['network_id']
+                elif request.subnet_id:
+                    try:
+                        subnet = neutron.show_subnet(
+                                         request.subnet_id).get('subnet')
+                    except neutron_client_exc.NeutronClientException as e:
+                        if e.status_code == 404:
+                            subnet = None
+                        else:
+                            with excutils.save_and_reraise_exception():
+                                LOG.exception(_LE("Failed to access subnet %s"),
+                                              request.subnet_id)
+                    if not subnet:
+                        raise exception.SubnetNotFound(
+                                        subnet_id=request.subnet_id)
+                    request.network_id = subnet['network_id']
+                    ports_needed_per_instance += 1
+                    net_ids_requested.append(request.network_id)
                 else:
                     ports_needed_per_instance += 1
                     net_ids_requested.append(request.network_id)

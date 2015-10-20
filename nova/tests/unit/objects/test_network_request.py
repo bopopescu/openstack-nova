@@ -36,9 +36,10 @@ class _TestNetworkRequestObject(object):
         request = objects.NetworkRequest(network_id='123',
                                          address='1.2.3.4',
                                          port_id=FAKE_UUID,
+                                         subnet_id=FAKE_UUID,
                                      )
         with mock.patch('nova.utils.is_neutron', return_value=True):
-            self.assertEqual(('123', '1.2.3.4', FAKE_UUID, None),
+            self.assertEqual(('123', '1.2.3.4', FAKE_UUID, None, FAKE_UUID),
                              request.to_tuple())
 
     def test_to_tuple_nova(self):
@@ -51,10 +52,11 @@ class _TestNetworkRequestObject(object):
 
     def test_from_tuple_neutron(self):
         request = objects.NetworkRequest.from_tuple(
-            ('123', '1.2.3.4', FAKE_UUID, None))
+            ('123', '1.2.3.4', FAKE_UUID, None, FAKE_UUID))
         self.assertEqual('123', request.network_id)
         self.assertEqual('1.2.3.4', str(request.address))
         self.assertEqual(FAKE_UUID, request.port_id)
+        self.assertEqual(FAKE_UUID, request.subnet_id)
 
     def test_from_tuple_neutron_without_pci_request_id(self):
         request = objects.NetworkRequest.from_tuple(
@@ -76,7 +78,7 @@ class _TestNetworkRequestObject(object):
             objects=[objects.NetworkRequest(network_id='123'),
                      objects.NetworkRequest(network_id='456')])
         self.assertEqual(
-            [('123', None, None, None), ('456', None, None, None)],
+            [('123', None, None, None, None), ('456', None, None, None, None)],
              requests.as_tuples())
 
     def test_is_single_unspecified(self):
